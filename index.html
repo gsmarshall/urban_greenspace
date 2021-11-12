@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      /* Create two unequal columns that floats next to each other */
+      .column {
+        float: left;
+        padding: 10px;
+        height: 300px; /* Should be removed. Only for demonstration */
+      }
+
+      .map-container {
+        width: 75%;
+      }
+
+      .filters {
+        width: 25%;
+      }
+
+      /* Clear floats after the columns */
+      .center:after {
+        content: "";
+        display: table;
+        clear: both;
+      }
+      /* Set the size of the div element that contains the map. */
+      #center-container{
+        height: 620px;
+        width: 100%;
+        background-color: #f0f2f0;
+        float: left;
+      }
+      #map-container {
+        alt:"Interactive Map";
+        height: 600px;
+        width: 74%;
+        background-color: #eee;
+        margin-left: 1%;
+      }
+      #header {
+        width: 98%;
+        margin-left: 1%;
+        margin-right: 1%;
+        margin-bottom: 20px;
+        background-color: #70785d;
+        padding-top: 30px;
+        padding-bottom: 20px;
+        padding-left: 10%;
+        border: 0px;
+        font-size: 32px;
+        font-family: didot;
+        color: #fffbee;
+        text-shadow: 2px 2px #5e4700;
+      }
+      #filters{
+        margin-left: 1%;
+        margin-right: 1%;
+        width: 23%;
+        height: 600px;
+        background-color: #dae8da;
+        padding:20px;
+        font-family: didot;
+        font-size: 20px;
+        color: black;
+        text-align:center;
+      }
+      #data{
+        margin-top: 20px;
+        height: 400px;
+        background-color: #d9dbd9;
+        padding:20px;
+        font-family: didot;
+        font-size: 20px;
+        color: black;
+        text-align:center;
+        margin-left: 1%;
+        margin-right: 1%;
+        width: 98%;
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- Load maps api key -->
+    <!-- <script type='text/javascript' src='config.js'></script> -->
+    <!-- Load Maps JavaScript API. For production apps, append your own Maps API key. -->
+    <!-- <script id = "maps_loading"></script>
+    <script>
+      var url = "src = https://maps.googleapis.com/maps/api/js?key=" + config.MAPS_KEY;
+      document.getElementById('maps_loading').innerHTML = url;
+      // src=url </script> -->
+    <script src = "https://maps.googleapis.com/maps/api/js?key="></script>
+    <!--
+      Load Earth Engine JavaScript API, required to add a custom tile source to the map which
+      pulls map tiles from Earth Engine.
+    -->
+    <script src="https://ajax.googleapis.com/ajax/libs/earthengine/0.1.226/earthengine-api.min.js"></script>
+
+    <!-- Element where the map will be added. -->
+
+    <div id="header"> Mapping Urban Green Spaces</div>
+    <div class="center">
+      <div class="column map-container" id="map-container"></div>
+      <div class="column filters" id="filters"> Map Filters</div>
+    </div>
+    <div id="data"> Data Analysis</div>
+
+
+    <script>
+      // Initializes Maps JavaScript API and adds an Earth Engine tile source to the map.
+      const initialize = (mapid) => {
+        // Get a reference to the placeholder DOM element to contain the map.
+        const mapContainerEl = document.getElementById("map-container");
+
+        // Create an interactive map inside the placeholder DOM element.
+        const embeddedMap = new google.maps.Map(mapContainerEl, {
+          // Pan and zoom initial map viewport to Grand Canyon.
+          center: { lng: -71.48, lat: 42.95 },
+          zoom: 13,
+        });
+
+        // Create a new tile source to fetch visible tiles on demand and displays them on the map.
+        const tileSource = new ee.layers.EarthEngineTileSource({
+          mapid,
+        });
+        const overlay = new ee.layers.ImageOverlay(tileSource);
+        embeddedMap.overlayMapTypes.push(overlay);
+      };
+
+      // Fetch a valid mapid from the remote web service defined in server.js.
+      fetch("/mapid")
+        .then((response) => response.text())
+        .then((mapid) => initialize(mapid));
+    </script>
+    </body>
+</html>
+
+<!-- SAMS CODE v
+    <script>
+      var visParamsMax = {
+        bands: ['N_max', 'R_max', 'G_max'],
+        min: 0,
+        max: 255
+      };
+
+      // ************************* filter by band availability **********************
+
+      // filter by images with 4 bands and calculates NDVI
+      // returns null if image has less than 4 bands, returns image plus ndvi band for valid 4 band images
+      var band_filter = function(image){
+        return ee.Algorithms.If(image.bandNames().length().eq(4), image.addBands(image.normalizedDifference(['N', 'R']).rename('NDVI')), null);
+      };
+      // future: try to buffer study area by a percentage of its width to reduce edge effects
+      // also will give more flexibility to dynamically display the data in our app
+      var bounds = manchester.bounds().coordinates().get(0);
+
+      // can use ee.Geometry.Point(-71.45, 42.99) instead of study area - not quite perfect, but will work for now
+      // returns composite image of all 4-band naip tiles within the study area
+      var preprocess = function(study_area){
+        //buffer_dist = manchester.bounds().coordinates();
+
+        // mapping over featurecollection is slower than filtering, but I haven't been able to get filtering by bands to work
+        var naip_4band = ee.ImageCollection('USDA/NAIP/DOQQ').filterBounds(study_area).map(band_filter, true);
+
+        // forms a composite image based on several measures from all images in the collection - not sure how these composites will figure in the
+        // classification but we'll keep them for now
+        var composite = naip_4band.reduce(ee.Reducer.max())
+                      // .addBands(naip_4band.reduce(ee.Reducer.mean()))   // include a mean reducer
+                      // .addBands(naip_4band.reduce(ee.Reducer.percentile([20])))// include a 20th percentile reducer
+                      // .addBands(naip_4band.reduce(ee.Reducer.max()))// include a standard deviation reducer
+                      .float();
+
+        return composite.clip(study_area);
+      };
+
+      var composite2 = preprocess(manchester);
+
+      // Export.image.toAsset(composite2);
+
+      Map.addLayer(composite2, visParamsMax, 'composite2');
+      print(ee.Image());
+
+
+      // ************* classify based on NDVI threshold ****************
+      // simple classification - 'low' values are considered unvegetated, 'mid' values are somewhat active vegetation,
+      // and 'high' values are very active vegetation
+      // these thresholds could be adjusted based on literature, but based on first looks it doesn't seem
+      // like this method is going to be as accurate or precise as we want
+      var thresholdClassify = function(image){
+        var ndvi = image.select('NDVI_max');
+
+        var low = ndvi.gt(-0.5);
+        var mid = ndvi.gt(-0.1);
+        var midhigh = ndvi.gt(0.2);
+        var high = ndvi.gt(0.4);
+
+        var ndvi_class = low.add(mid).add(midhigh).add(high).rename('NDVI_class');
+
+        return image.addBands(ndvi_class);
+      };
+
+      var comp_class = thresholdClassify(composite2);
+      print(comp_class);
+
+      // Map.addLayer(comp_class, class_vis, 'threshold classified');
+
+
+      // // export study region
+      // Export.table.toAsset({
+      //   collection: greater_manch,
+      //   description: 'Manchester study region',
+      //   assetId: 'Manch_study'});
+
+
+
+      // **************************** Classification ************************
+      {
+      // classification function with EE random forest classifier
+      var addclass = function(classifimage, training_pts){
+
+
+        var bands = ['R_max', 'G_max', 'B_max', 'N_max', 'NDVI_max'];
+
+        // Collecting values of the pixels that correspond to our manualy collected
+      // training points
+        var training = classifimage.select(bands).sampleRegions({
+                  collection: training_pts,
+                  properties: ['Class'],
+                  scale: 1
+                  });
+
+
+        print(training);
+
+        // parameters for a classifier
+        var classifier = ee.Classifier.smileRandomForest({
+                    numberOfTrees: 300,
+                    //variablesPerSplit: 0,
+                    minLeafPopulation: 2,
+                    bagFraction: 0.5,
+                    //outOfBagMode: true,
+                    seed: 0
+                        });
+
+        var classifier_cart = ee.Classifier.smileCart();
+
+
+        // Trained with 70% of our data.
+        var trainedClassifier = classifier.train(training, 'Class', bands);
+
+        // Print the confusion matrix.
+        var confusionMatrix = trainedClassifier.confusionMatrix();
+        print('Confusion Matrix', confusionMatrix);
+        print('Validation overall accuracy: ', confusionMatrix.accuracy());
+
+        // Return the classified image
+        return classifimage.select(bands).classify(trainedClassifier);
+      };
+
+      print(training_pts_0);
+
+      // Add a random field so that the points can be split for training and validation
+      var withRandom = training_pts_0.randomColumn('random');
+
+      var split = 0.7;  // 70% training, 30% testing.
+      var trainingPartition = withRandom.filter(ee.Filter.lt('random', split));
+      var testingPartition = withRandom.filter(ee.Filter.gte('random', split));
+
+      // Visualize the classified image
+      var classparams = {
+        min: 1,
+        max: 6,
+        palette: ['33a02c', 'b2df8a', 'd20606', '6b6687', 'ffeca5', '2b32ff']
+      };
+
+
+      // Classify the statistics based image
+      //var classified = addclass(composite2, trainingpts);
+
+
+      //Map.addLayer(classified, classparams,'classified');
+
+
+    </script>
+    -->
