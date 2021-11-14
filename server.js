@@ -5,9 +5,6 @@
  * accompanying README file for instructions on how to set up authentication.
  */
 
- // SyntaxError: Cannot use import statement outside a module
-// import analysis from './analysis.js';
-
 const ee = require('@google/earthengine');
 const express = require('express');
 const privateKey = require('./.private-key.json');
@@ -32,7 +29,9 @@ const app = express().get('/mapid', (_, response) => {
 
   const manch_pre = new Preprocessing();
   const composite2 = manch_pre.preprocess();
-  composite2.getMap(visParams, ({mapid}) => response.send(mapid));
+  console.log(manch_pre.visParamsMax);
+  response.send(composite2.getMap(manch_pre.visParamsMax).mapid);
+  //composite2.getMap(visParams, ({mapid}) => response.send(mapid));
   // slope.getMap({min: 0, max: 60}, ({mapid}) => response.send(mapid));
 });
 
@@ -70,14 +69,14 @@ Visit https://developers.google.com/earth-engine/service_account#how-do-i-create
 
     constructor(){
       // true color visualization parameters for NAIP image
-      var visParamsMax = {
+      this.visParamsMax = {
         bands: ['N_max', 'R_max', 'G_max'],
         min: 0,
         max: 255
       };
 
       // study region of Manchester, NH explicitly established here - hope to make dynamic later
-      var manchester =  ee.Feature(
+      this.manchester =  ee.Feature(
                   ee.Geometry.Polygon([[
                     [-71.54293288787831,42.926820038499166],
                     [-71.35822524627675,42.926820038499166],
@@ -108,7 +107,7 @@ Visit https://developers.google.com/earth-engine/service_account#how-do-i-create
       var study_area = this.manchester;
 
       // mapping over featurecollection is slower than filtering, but I haven't been able to get filtering by bands to work
-      var naip_4band = ee.ImageCollection('USDA/NAIP/DOQQ').filterBounds(study_area).map(this.band_filter, true);
+      var naip_4band = ee.ImageCollection('USDA/NAIP/DOQQ').filterBounds(ee.Geometry.Point(-71.45, 42.99)).map(this.band_filter, true);
 
       // forms a composite image based on several measures from all images in the collection - not sure how these composites will figure in the
       // classification but we'll keep them for now
@@ -117,7 +116,7 @@ Visit https://developers.google.com/earth-engine/service_account#how-do-i-create
                     // .addBands(naip_4band.reduce(ee.Reducer.percentile([20])))// include a 20th percentile reducer
                     // .addBands(naip_4band.reduce(ee.Reducer.max()))// include a standard deviation reducer
                     .float();
-
+      console.log(composite.getInfo());
       return composite.clip(study_area);
     }
   }
