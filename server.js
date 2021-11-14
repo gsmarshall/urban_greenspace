@@ -13,7 +13,7 @@ const express = require('express');
 const privateKey = require('./.private-key.json');
 const port = process.env.PORT || 3000;
 
-// const analysis = require('./analysis.js');
+const analysis = require('./analysis.js');
 // const analysis_alt = require('./analysis_alt.js');
 
 var application_root = __dirname;
