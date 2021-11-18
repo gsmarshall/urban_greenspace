@@ -9,9 +9,7 @@ const ee = require('@google/earthengine');
 const express = require('express');
 const privateKey = require('./.private-key.json');
 const port = process.env.PORT || 3000;
-
-const analysis = require('./analysis.js');
-// const analysis_alt = require('./analysis_alt.js');
+//const test_data = require('./data/census_example.json');
 
 var application_root = __dirname;
 
@@ -29,10 +27,18 @@ const app = express().get('/mapid', (_, response) => {
 
   const manch_pre = new Preprocessing();
   const composite2 = manch_pre.preprocess();
-  console.log(manch_pre.visParamsMax);
-  response.send(composite2.getMap(manch_pre.visParamsMax).mapid);
-  //composite2.getMap(visParams, ({mapid}) => response.send(mapid));
-  // slope.getMap({min: 0, max: 60}, ({mapid}) => response.send(mapid));
+
+  const lc_class = new ImageClass();
+  lc_class.classifimage = composite2;
+  const lc = lc_class.addclass();
+
+  // console.log(lc.getInfo());
+  // response.send(composite2.getMap(manch_pre.visParamsMax).mapid);
+  // response.send(lc.getMap(lc_class.classparams, ).mapid);
+
+  // getMap() (apparently) needs a callback to work reliably outside of the EE code editor
+  // we had problems with this method returning undefined before, but it seems to be working now
+  lc.getMap(lc_class.classparams, ({mapid}) => response.send(mapid));
 });
 
 app.use(express.static(application_root));
@@ -76,16 +82,13 @@ Visit https://developers.google.com/earth-engine/service_account#how-do-i-create
       };
 
       // study region of Manchester, NH explicitly established here - hope to make dynamic later
-      this.manchester =  ee.Feature(
-                  ee.Geometry.Polygon([[
+      this.manchester = ee.FeatureCollection(ee.Geometry.Polygon([[
                     [-71.54293288787831,42.926820038499166],
                     [-71.35822524627675,42.926820038499166],
                     [-71.35822524627675,43.0594105256263],
                     [-71.54293288787831,43.0594105256263],
                     [-71.54293288787831,42.926820038499166]
-                  ]]),
-                  {'system:index': '0'}
-              );
+                  ]]));
 
       var preprocessed = ee.Image();
     }
@@ -104,21 +107,72 @@ Visit https://developers.google.com/earth-engine/service_account#how-do-i-create
     // returns composite image of all 4-band naip tiles within the study area
     preprocess(){
       //buffer_dist = manchester.bounds().coordinates();
-      var study_area = this.manchester;
 
       // mapping over featurecollection is slower than filtering, but I haven't been able to get filtering by bands to work
-      var naip_4band = ee.ImageCollection('USDA/NAIP/DOQQ').filterBounds(ee.Geometry.Point(-71.45, 42.99)).map(this.band_filter, true);
+      var naip_4band = ee.ImageCollection('USDA/NAIP/DOQQ').filterBounds(this.manchester).map(this.band_filter, true);
 
       // forms a composite image based on several measures from all images in the collection - not sure how these composites will figure in the
       // classification but we'll keep them for now
       var composite = naip_4band.reduce(ee.Reducer.max())
-                    // .addBands(naip_4band.reduce(ee.Reducer.mean()))   // include a mean reducer
-                    // .addBands(naip_4band.reduce(ee.Reducer.percentile([20])))// include a 20th percentile reducer
-                    // .addBands(naip_4band.reduce(ee.Reducer.max()))// include a standard deviation reducer
+                    .addBands(naip_4band.reduce(ee.Reducer.mean()))   // include a mean reducer
+                    .addBands(naip_4band.reduce(ee.Reducer.percentile([20])))// include a 20th percentile reducer
+                    .addBands(naip_4band.reduce(ee.Reducer.max()))// include a standard deviation reducer
                     .float();
-      console.log(composite.getInfo());
-      return composite.clip(study_area);
+
+      var composite2 = composite.clip(this.manchester);
+
+      return composite2;
     }
+  }
+
+  class ImageClass {
+    constructor(){
+      this.trainingpts = require('./data/training_pts.json');
+
+      this.classparams = {
+        min: 1,
+        max: 6,
+        palette: ['33a02c', 'b2df8a', 'd20606', '6b6687', 'ffeca5', '2b32ff']
+      };
+
+      this.classifimage = ee.Image();
+    }
+
+    // classification function with EE random forest classifier
+    addclass(){
+
+      // select all bands from input image for classifier - this can be adjusted by specifying an array of bands
+      var bands = this.classifimage.bandNames(); //['R_max', 'G_max', 'B_max', 'N_max', 'NDVI_max'];
+
+      // Collecting values of the pixels that correspond to our manualy collected
+      // training points
+      var training = this.classifimage.select(bands).sampleRegions({
+              collection: this.trainingpts,
+              properties: ['Class'],
+              scale: 1
+              });
+
+      // parameters for a classifier
+      var classifier = ee.Classifier.smileRandomForest({
+                numberOfTrees: 300,
+                //variablesPerSplit: 0,
+                minLeafPopulation: 1,
+                bagFraction: 0.5,
+                //outOfBagMode: true,
+                seed: 0
+                    });
+
+      // Trained with 70% of our data.
+      var trainedClassifier = classifier.train(training, 'Class', bands);
+
+      // // Print the confusion matrix.
+      // var confusionMatrix = trainedClassifier.confusionMatrix();
+      // print('Confusion Matrix', confusionMatrix);
+      // print('Validation overall accuracy: ', confusionMatrix.accuracy());
+
+      // Return the classified image
+      return this.classifimage.select(bands).classify(trainedClassifier);
+    };
   }
 
   // python for getting study area
