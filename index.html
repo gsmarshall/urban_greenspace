@@ -82,6 +82,7 @@
         margin-right: 1%;
         width: 98%;
       }
+
     </style>
   </head>
   <body>
@@ -101,7 +102,6 @@
     -->
     <script src="https://ajax.googleapis.com/ajax/libs/earthengine/0.1.226/earthengine-api.min.js"></script>
 
-    <!-- include analysis file -->
     <!-- <script type="module" src="./analysis.js"></script> -->
 
     <!-- Element where the map will be added. -->
@@ -109,7 +109,18 @@
     <div id="header"> Mapping Urban Green Spaces</div>
     <div class="center">
       <div class="column map-container" id="map-container"></div>
-      <div class="column filters" id="filters"> Map Filters</div>
+      <div class="column filters" id="filters">
+         <form action="/action_page.php">
+         <label for="cars">Select Map View:</label>
+         <select name="maptype" id="maptype">
+           <option value="default">Default</option>
+           <option value="treeline">Treeline Data</option>
+           <option value="score">Green Score</option>
+         </select>
+         <input type="submit" value="Update">
+        </form>
+
+      </div>
     </div>
     <div id="data"> Data Analysis</div>
 
