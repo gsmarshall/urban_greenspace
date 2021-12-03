@@ -1,7 +1,7 @@
 /**
  * @fileoverview Default entry point for App Engine Node.js runtime. Defines a
  * web service which returns the mapid to be used by clients to display map
- * tiles showing slope computed in real time from SRTM DEM data. See
+ * tiles showing tree equity analysis computed in real time. See
  * accompanying README file for instructions on how to set up authentication.
  */
 const ee = require('@google/earthengine');
@@ -268,13 +268,12 @@ calculateScores(){
   let priority_census = this.censusdata.map(this.addLowIncomePct).map(this.addNonWhitePct).map(this.addUnemploymentPct).map(this.addDepRatio);
 
   // calculate tree cover area
-  // specify projection as NAD83/New Hampshire
   // input: boolean classified tree cover, where 1 = tree, 0 = other
   let tree_cover = this.green.reduceRegions({
     collection: priority_census,
     reducer: ee.Reducer.sum(),
     scale: this.scale, // scale of 4 runs reasonably
-    crs: 'EPSG:32110',
+    crs: 'EPSG:32110',   // specify projection as NAD83/New Hampshire
     tileScale: 4 // tileScale of 4 with scale of 2 runs, but very slowly
   });
 
