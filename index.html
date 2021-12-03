@@ -109,7 +109,12 @@
     <div id="header"> Mapping Urban Green Spaces</div>
     <div class="center">
       <div class="column map-container" id="map-container"></div>
-      <div class="column filters" id="filters"> Map Filters</div>
+      <div class="column filters" id="filters"> Map Filters
+        <form>
+          Layers:
+          <select id="layers"></select>
+        </form>
+      </div>
     </div>
     <div id="data"> Data Analysis</div>
 
@@ -127,12 +132,68 @@
           zoom: 13,
         });
 
-        // Create a new tile source to fetch visible tiles on demand and displays them on the map.
-        const tileSource = new ee.layers.EarthEngineTileSource({
-          mapid,
-        });
-        const overlay = new ee.layers.ImageOverlay(tileSource);
-        embeddedMap.overlayMapTypes.push(overlay);
+        // probably redundant with the contents of getJson()
+        // // Create a new tile source to fetch visible tiles on demand and displays them on the map.
+        // const tileSource = new ee.layers.EarthEngineTileSource({
+        //   mapid,
+        // });
+        // const overlay = new ee.layers.ImageOverlay(tileSource);
+        // embeddedMap.overlayMapTypes.push(overlay);
+
+        // ************* trying to get multiple layers *****************
+        getJSON(
+          '/getmapid',
+          {
+            points: $('#points').val(),
+            rectangle: getCoordinates(rectangle)
+          },
+          function(data) {
+            // Clear out any old layers.
+            map.overlayMapTypes.clear();
+            $('#layers').empty();
+
+            data.forEach(function(layer, i) {
+              // Configuration for the image map type. The Google Maps API calls
+              // getTileUrl when it tries to display a map tile. Our method will
+              // provide a valid URL to an Earth Engine map tile based on the
+              // mapid and token.
+              var eeMapOptions = {
+                getTileUrl: buildGetTileUrl(layer),
+                tileSize: new google.maps.Size(256, 256)
+              };
+
+              // Create the map type.
+              var mapType = new google.maps.ImageMapType(eeMapOptions);
+
+              // Add the EE layer to the map.
+              map.overlayMapTypes.push(mapType);
+
+              // Hide the layer if it is not the last result, show one layer at a
+              // time.
+              if(i + 1 < data.length) {
+                map.overlayMapTypes.getAt(i).setOpacity(0);
+              }
+
+              // Add layer to the layer dropdown.
+              var option = document.createElement('option');
+              option.label = layer.label;
+              option.value = i;
+              // This causes the last item to be selected.
+              option.selected = true;
+              $('#layers').append(option);
+            });
+          });
+
+          // Returns a function that builds a valid tile URL to Earth Engine based on
+        // the mapid and token.
+        function buildGetTileUrl(layer) {
+          return function(tile, zoom) {
+            // We haven't loaded the ee client library, so we process the template
+            // explicitly instead of calling ee.data.getTileUrl(layer, x, y, zoom).
+            return layer.urlFormat.replace('{x}', tile.x).replace('{y}', tile.y)
+                .replace('{z}', zoom);
+          };
+        }
       };
 
       // Fetch a valid mapid from the remote web service defined in server.js.
