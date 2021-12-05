@@ -2,6 +2,11 @@
 .private-key.json
 config.js
 
+# R workspace files
+.RData
+.Rhistory
+
+
 # Logs
 logs
 *.log

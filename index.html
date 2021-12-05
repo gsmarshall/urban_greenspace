@@ -131,10 +131,27 @@
         const overlay = new ee.layers.ImageOverlay(tileSource);
         embeddedMap.overlayMapTypes.push(overlay);
         //embeddedMap.data.loadGeoJson('data/priority_indicators_rawv2.geojson');
+
+        // add event listener to map for when it moves
+        // submitButton.addEventListener("click", addItem);
+        //
+        // function addItem() {
+        //     // make this item the map center coords
+        //     let newItem = textField.value;
+        //     let todo = { // should this 'todo' object be changed to 'mapid'? can/does the fetch id be the same as post id?
+        //         item: newItem  // seems like it based on the get/post handlers in stackoverflow examples
+        //     };
+
       };
 
       // Fetch a valid mapid from the remote web service defined in server.js.
-      fetch("/mapid")
+      fetch("/mapid", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(mapid)
+      })
         .then((response) => response.text())
         .then((mapid) => initialize(mapid));
     </script>
