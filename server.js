@@ -17,13 +17,6 @@ var application_root = __dirname;
 const app = express().get('/mapid', (_, response) => {
   console.log('do Earth Engine API using private key...');
 
-
-  var visParams = {
-    bands: ['R', 'G', 'B'],
-    min: 0,
-    max: 255
-    };
-
   const manch_pre = new Preprocessing();
   const composite2 = manch_pre.preprocess();
 
@@ -43,12 +36,8 @@ const app = express().get('/mapid', (_, response) => {
 
   // getMap() (apparently) needs a callback to work reliably outside of the EE code editor
   // we had problems with this method returning undefined before, but it seems to be working now
-  census.tes_image.getMap(census.equity_vis, ({mapid}) => response.send(mapid));
-
-  // trying to load and display census data
-  // throwing old error: cannot destructure property 'mapid' of undefined
-  // remember: don't use getInfo() or getMap() without a callback! it won't work!
-  // cimg.getMap(census.equity_vis, ({mapid}) => response.send(mapid));
+  // census.tes_image.getMap(census.equity_vis, ({mapid}) => response.send(mapid));
+  composite2.getMap(manch_pre.visParamsMax, ({mapid}) => response.send(mapid));
 });
 
 app.use(express.static(application_root));
@@ -84,7 +73,7 @@ Visit https://developers.google.com/earth-engine/service_account#how-do-i-create
     constructor(){
       // true color visualization parameters for NAIP image
       this.visParamsMax = {
-        bands: ['N_max', 'R_max', 'G_max'],
+        bands: ['R_max', 'G_max', 'B_max'],
         min: 0,
         max: 255
       };
