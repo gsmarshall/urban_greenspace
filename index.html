@@ -200,6 +200,12 @@
           // Pan and zoom initial map viewport to Manchester
           center: { lng: -71.48, lat: 42.95 },
           zoom: 13,
+          // enable map type controls - not working
+          mapTypeControl: true,
+          mapTypeControlOptions: {
+            style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
+            //mapTypeIds: ["roadmap", "terrain"],
+          }
         });
 
         // Create a new tile source to fetch visible tiles on demand and displays them on the map.
@@ -208,29 +214,6 @@
         });
         const overlay = new ee.layers.ImageOverlay(tileSource);
         embeddedMap.overlayMapTypes.push(overlay);
-
-        //let selectedPoly;
-        //for (let p = 0; p < rawdata.features.length;p++){
-        //   polycoords = [];
-        //   for (let c = 0; c < rawdata.features[p].geometry.coordinates[0].length;c++){
-        //     polycoords[c] = {lat:rawdata.features[p].geometry.coordinates[0][c][0], lng:rawdata.features[p].geometry.coordinates[0][c][1]};
-        //   }
-        //   const poly = new google.maps.Polygon({
-        //   paths:polycoords,
-        //   id: rawdata.features[p].id,
-        //   tes: rawdata.features[p].properties.tes
-        //
-        //   });
-        //   console.log(poly);
-        //   //display poly
-        //   poly.setMap(embeddedMap)
-        //
-        //   google.maps.event.addListener(poly, 'click', function (event) {
-        //     console.log("creating chart");
-        //     createChart(this.id);
-        //     //selectedPoly = this.id;
-        //   });
-        // }
 
         embeddedMap.data.loadGeoJson('data/tes_data.geojson');
 
@@ -253,14 +236,17 @@
           }
           return {
                     fillColor: color,
-                    strokeWeight: 1,
-                    fillOpacity: 0.7
+                    strokeWeight: 0.5,
+                    fillOpacity: 0.7,
+                    strokeColor: '#222222'
                   };
         })
 
         embeddedMap.data.addListener('click', function(event) {
           let id = event.feature.getProperty("GEOID");
           createChart(id);
+          embeddedMap.data.revertStyle(); // reset polygon styling
+          embeddedMap.data.overrideStyle(event.feature, {strokeWeight: 2, strokeColor: '#010101'}) // make polygon outline thicker
         });
 
 
