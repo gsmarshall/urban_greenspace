@@ -16,39 +16,34 @@ var application_root = __dirname;
 // Define endpoint at /mapid.
 const app = express().get('/mapid', (_, response) => {
   console.log('do Earth Engine API using private key...');
+  // limited analysis range
+  // const manch_pre = new Preprocessing();
+  // const composite2 = manch_pre.preprocess();
+  //
+  // const lc_class = new ImageClass(composite2);
+  // lc_class.addclass();
 
+  // const census = new CensusAnalysis(lc_class.classified_image, 4, 0.4);
+  // const cimg = census.census_image;
+  // census.calculateScores();
+  // census.visualizeEquityScore();
 
-  var visParams = {
-    bands: ['R', 'G', 'B'],
-    min: 0,
-    max: 255
-    };
+  // expanded analysis range
+  const preprocessing = new PreprocessFeatures();
+  preprocessing.createPlaceList();
 
-  const manch_pre = new Preprocessing();
-  const composite2 = manch_pre.preprocess();
+  const manch_analysis = new CensusAnalysis(preprocessing.test_list.get(0), 4, 0.4);
+  // Preprocessing and image classification
+  var study_area = ee.FeatureCollection(manch_analysis.censusdata).geometry();
 
-  const lc_class = new ImageClass(composite2);
-  lc_class.addclass();
-
-  const census = new CensusAnalysis(lc_class.classified_image, 4, 0.4);
-  const cimg = census.census_image;
-  census.calculateScores();
-  census.visualizeEquityScore();
-  // for some reason this returns info for the function first(), not the first object in the collection
-  // console.log(census.censusdata.first());
-  // console.log(census.tes_manch.first());
-  // console.log(lc.getInfo());
-  // response.send(composite2.getMap(manch_pre.visParamsMax).mapid);
-  // response.send(lc.getMap(lc_class.classparams, ).mapid);
+  manch_analysis.placeAnalysis();
+  manch_analysis.visualizeEquityScore();
+  manch_analysis.tes_image.getMap(manch_analysis.equity_vis, ({mapid}) => response.send(mapid));
 
   // getMap() (apparently) needs a callback to work reliably outside of the EE code editor
   // we had problems with this method returning undefined before, but it seems to be working now
-  census.tes_image.getMap(census.equity_vis, ({mapid}) => response.send(mapid));
+  // census.tes_image.getMap(census.equity_vis, ({mapid}) => response.send(mapid));
 
-  // trying to load and display census data
-  // throwing old error: cannot destructure property 'mapid' of undefined
-  // remember: don't use getInfo() or getMap() without a callback! it won't work!
-  // cimg.getMap(census.equity_vis, ({mapid}) => response.send(mapid));
 });
 
 app.use(express.static(application_root));
@@ -125,7 +120,7 @@ Visit https://developers.google.com/earth-engine/service_account#how-do-i-create
       var composite = naip_4band.reduce(ee.Reducer.max())
                     .addBands(naip_4band.reduce(ee.Reducer.mean()))   // include a mean reducer
                     .addBands(naip_4band.reduce(ee.Reducer.percentile([20])))// include a 20th percentile reducer
-                    .addBands(naip_4band.reduce(ee.Reducer.max()))// include a standard deviation reducer
+                    .addBands(naip_4band.reduce(ee.Reducer.stdDev()))// include a standard deviation reducer
                     .float();
 
       var composite2 = composite.clip(this.manchester);
@@ -152,7 +147,6 @@ Visit https://developers.google.com/earth-engine/service_account#how-do-i-create
 
       // select all bands from input image for classifier - this can be adjusted by specifying an array of bands
       var bands = this.input_image.bandNames(); //['R_max', 'G_max', 'B_max', 'N_max', 'NDVI_max'];
-
       // parameters for a classifier
       var classifier = ee.Classifier.smileRandomForest({
                 numberOfTrees: 300,
@@ -187,16 +181,15 @@ class PreprocessFeatures {
   }
 
   addTractID(feature){
-  let tractID = feature.getString('GEOID').slice(0, 11);
-  return feature.set({tract_id: tractID});
+    let tractID = feature.getString('GEOID').slice(0, 11);
+    return feature.set({tract_id: tractID});
   };
 
   joinHealthData(){
-    var priority_places_health = this.priority_indicators_places.map(this.addTractID);
-
+    var indicators_joined = this.priority_indicators_places.map(this.addTractID);
     var health_select = this.health_indicators_ne.select(['tractfips','phlth_crud', 'mhlth_crud', 'casthma_cr', 'chd_crudep'], ['tractfips', 'phys_hlth', 'ment_hlth', 'asthma', 'chd']);
     var filter = ee.Filter.equals({leftField: 'tract_id', rightField: 'tractfips'});
-    var health_indicators = ee.Join.inner('primary', 'secondary').apply(priority_places_health, health_select, filter);
+    var health_indicators = ee.Join.inner('primary', 'secondary').apply(indicators_joined, health_select, filter);
 
     return health_indicators.map(this.cleanJoin);
   }
@@ -212,109 +205,105 @@ class PreprocessFeatures {
     let priority_places_health = this.joinHealthData();
     let place_names = priority_places_health.aggregate_array('p_GEOID').distinct();
 
-    // construct dictionary of place names
-    let place_dict = ee.Dictionary.fromLists(place_names, ee.List.repeat(0, priority_places_health.aggregate_array('p_GEOID').distinct().length()));
-
-    let place_collection = ee.Dictionary();
-
-    this.place_list = place_names.map(this.addPlaces);
-    this.test_list = this.test_places.map(this.addPlaces);
-  }
-
-  // mapped over featurecollection
-  // given a metro area name and a feature, returns the input feature if its value for metro_name matches the
-  // given input metro name, and returns null otherwise
-  filterPlaces(this_place_name){
-    let wrap = function(feature){
-      return ee.Algorithms.If(ee.String(this_place_name).match(feature.getString('p_GEOID')).size().gt(0), feature, null);
+    // mapped over featurecollection
+    // given a metro area name and a feature, returns the input feature if its value for metro_name matches the
+    // given input metro name, and returns null otherwise
+    let filterPlaces = function(this_place_name){
+      let wrap = function(feature){
+        return ee.Algorithms.If(ee.String(this_place_name).match(feature.getString('p_GEOID')).size().gt(0), feature, null);
+      };
+      return wrap;
     };
-    return wrap;
-  };
 
-  // mapped over list of place names
-  // for each name, maps another function over the input feature collection and selects features to put into collection for each name
-  addPlaces(element){
-    var collection = priority_places_health.map(filterPlaces(element), true);
-    collection = collection.set({place_id: element});
-    // add featurecollection to list
-    return collection;
-  };
+    // mapped over list of place names
+    // for each name, maps another function over the input feature collection and selects features to put into collection for each name
+    let addPlaces = function(element){
+      var collection = priority_places_health.map(filterPlaces(element), true);
+      collection = collection.set({place_id: element});
+      // add featurecollection to list
+      return collection;
+    };
+
+    this.place_list = place_names.map(addPlaces);
+    this.test_list = this.test_places.map(addPlaces);
+    // debugs until here look good - feature count for test_list[0] = 93
+  }
 }
 
 class CensusAnalysis {
   // constructor for old analysis workflow, with only one fixed study area
-  constructor(classified_img, _scale, _canopy_goal){
-    // this.censusdata = ee.FeatureCollection('./data/priority_indicators_rawv2.geojson');
-    this.censusdata = ee.FeatureCollection('users/gsmarshall/priority_indicators_rawv2');
-    // this.censusdata = ee.FeatureCollection(geojson.parse(require('./data/priority_indicators_rawv2.json'), {GeoJSON: 'geo'}));
-    this.health_data = ee.FeatureCollection('users/gsmarshall/hillsborough_county_health');
-    // final collection with equity score - not necessary to declare here, but makes it a bit easier to keep track of
-    this.tes_manch;
-    // declare image to visualize results
-    this.tes_image;
-    // Remap supervised classification to boolean image - green vs else
-    this.green = classified_img.remap([1,2,3,4,5,6], [1,0,0,0,0,0]);
-
-    this.scale = _scale; // pixel size in meters at which to calculate tree cover - lower is more precise, but runs far slower
-    this.canopy_goal = _canopy_goal; // percent canopy cover goal, expressed as a decimal in [0,1]
-    this.pixel_area = this.scale*this.scale;
-
-    this.census_image = ee.Image().byte().paint({
-      featureCollection: this.censusdata,
-      color: 'B01001_001'
-    }).paint({
-      featureCollection: this.censusdata,
-      color: '030303',
-      width: 1
-    });
-
-    // visualization parameters for final tes score
-    this.equity_vis = {
-      min: 40,
-      max: 100,
-      palette: ['#030303', '#edf8fb','#ccece6','#99d8c9','#66c2a4','#41ae76','#238b45','#005824'],
-      opacity: 0.7
-    };
-
-    // object containing citywide max and min values for priority indicators
-    this.priority_extremes = {
-      gap: {
-        max: undefined
-      },
-      dep: {
-        min: undefined,
-        max: undefined
-      },
-      unemployment: {
-        min: undefined,
-        max: undefined
-      },
-      nonwhite: {
-        min: undefined,
-        max: undefined
-      },
-      low_income: {
-        min: undefined,
-        max: undefined
-      },
-      phys: {
-        min: undefined,
-        max: undefined
-      },
-      ment: {
-        min: undefined,
-        max: undefined
-      },
-      asthma: {
-        min: undefined,
-        max: undefined
-      },
-      chd: {
-        min: undefined,
-        max: undefined
-      }
-    };
-  }
+  // constructor(classified_img, _scale, _canopy_goal){
+  //   // this.censusdata = ee.FeatureCollection('./data/priority_indicators_rawv2.geojson');
+  //   this.censusdata = ee.FeatureCollection('users/gsmarshall/priority_indicators_rawv2');
+  //   // this.censusdata = ee.FeatureCollection(geojson.parse(require('./data/priority_indicators_rawv2.json'), {GeoJSON: 'geo'}));
+  //   this.health_data = ee.FeatureCollection('users/gsmarshall/hillsborough_county_health');
+  //   // final collection with equity score - not necessary to declare here, but makes it a bit easier to keep track of
+  //   this.tes_scores;
+  //   // declare image to visualize results
+  //   this.tes_image;
+  //   // Remap supervised classification to boolean image - green vs else
+  //   this.green = classified_img.remap([1,2,3,4,5,6], [1,0,0,0,0,0]);
+  //
+  //   this.scale = _scale; // pixel size in meters at which to calculate tree cover - lower is more precise, but runs far slower
+  //   this.canopy_goal = _canopy_goal; // percent canopy cover goal, expressed as a decimal in [0,1]
+  //   this.pixel_area = this.scale*this.scale;
+  //
+  //   this.census_image = ee.Image().byte().paint({
+  //     featureCollection: this.censusdata,
+  //     color: 'B01001_001'
+  //   }).paint({
+  //     featureCollection: this.censusdata,
+  //     color: '030303',
+  //     width: 1
+  //   });
+  //
+  //   // visualization parameters for final tes score
+  //   this.equity_vis = {
+  //     min: 40,
+  //     max: 100,
+  //     palette: ['#030303', '#edf8fb','#ccece6','#99d8c9','#66c2a4','#41ae76','#238b45','#005824'],
+  //     opacity: 0.7
+  //   };
+  //
+  //   // object containing citywide max and min values for priority indicators
+  //   this.priority_extremes = {
+  //     gap: {
+  //       max: undefined
+  //     },
+  //     dep: {
+  //       min: undefined,
+  //       max: undefined
+  //     },
+  //     unemployment: {
+  //       min: undefined,
+  //       max: undefined
+  //     },
+  //     nonwhite: {
+  //       min: undefined,
+  //       max: undefined
+  //     },
+  //     low_income: {
+  //       min: undefined,
+  //       max: undefined
+  //     },
+  //     phys: {
+  //       min: undefined,
+  //       max: undefined
+  //     },
+  //     ment: {
+  //       min: undefined,
+  //       max: undefined
+  //     },
+  //     asthma: {
+  //       min: undefined,
+  //       max: undefined
+  //     },
+  //     chd: {
+  //       min: undefined,
+  //       max: undefined
+  //     }
+  //   };
+  // }
 
   // constructor for dynamic analysis workflow, with the study area dependent on the input collection
   constructor(input_collection, _scale, _canopy_goal){
@@ -325,8 +314,6 @@ class CensusAnalysis {
     this.tes_scores;
     // declare image to visualize results
     this.tes_image;
-    // Remap supervised classification to boolean image - green vs else
-    this.green = classified_img.remap([1,2,3,4,5,6], [1,0,0,0,0,0]);
 
     this.scale = _scale; // pixel size in meters at which to calculate tree cover - lower is more precise, but runs far slower
     this.canopy_goal = _canopy_goal; // percent canopy cover goal, expressed as a decimal in [0,1]
@@ -433,31 +420,31 @@ class CensusAnalysis {
     this.priority_extremes.chd.max = tree_gap.aggregate_max('chd');
     this.priority_extremes.chd.min = tree_gap.aggregate_min('chd');
 
-    this.tes_manch = tree_gap.map(this.equityScore(this.priority_extremes));
+    this.tes_scores = tree_gap.map(this.equityScore(this.priority_extremes));
   }
 
   // used with dynamic analysis workflow
   // input: feature collection representing a single metropolitan area with census data and health indicators
   // output: feature collection with equity scores for each block group
-  placeAnalysis(feature_collection){
+  placeAnalysis(){
     // Preprocessing and image classification
-    var study_area = ee.FeatureCollection(feature_collection).geometry();
+    var study_area = ee.FeatureCollection(this.censusdata).geometry();
 
     let input_image = new Preprocessing(study_area);
     let composite = input_image.preprocess();
 
-    let classified = new ImageClass(composite);
-    classified.addclass();
+    let image_class = new ImageClass(composite);
+    image_class.addclass();
 
     // Remap supervised classification to boolean image - green vs else
-    var green = classified.remap([1,2,3,4,5,6], [1,0,0,0,0,0]);
+    var green = ee.Image(image_class.classified_image).remap([1,2,3,4,5,6], [1,0,0,0,0,0]);
+
 
     // Census analysis
     let priority_census = this.censusdata.map(this.addLowIncomePct).map(this.addNonWhitePct).map(this.addUnemploymentPct).map(this.addDepRatio);
-
     // calculate tree cover area
     // input: boolean classified tree cover, where 1 = tree, 0 = other
-    let tree_cover = this.green.reduceRegions({
+    let tree_cover = green.reduceRegions({
       collection: priority_census,
       reducer: ee.Reducer.sum(),
       scale: this.scale, // scale of 4 runs reasonably
@@ -466,6 +453,7 @@ class CensusAnalysis {
     });
 
     let tree_gap = tree_cover.map(this.setGap(this.pixel_area, this.canopy_goal));
+    // console.log(ee.FeatureCollection(tree_gap).aggregate_count('GEOID').getInfo());
 
     // calculate max and min citywide (the whole feature collection) for each indicator
     this.priority_extremes.gap.max = tree_gap.aggregate_max('gap');
@@ -488,17 +476,17 @@ class CensusAnalysis {
     this.priority_extremes.chd.max = tree_gap.aggregate_max('chd');
     this.priority_extremes.chd.min = tree_gap.aggregate_min('chd');
 
-    tree_gap = tree_gap.set({place_id: ee.FeatureCollection(feature_collection).getString('place_id')});
+    tree_gap = tree_gap.set({place_id: ee.FeatureCollection(this.censusdata).getString('place_id')});
     this.tes_scores= tree_gap.map(this.equityScore(this.priority_extremes));
   };
 
   // initializes image to visualize equity scores
   visualizeEquityScore(){
     this.tes_image = ee.Image().byte().paint({
-      featureCollection: this.tes_manch,
+      featureCollection: this.tes_scores,
       color: 'tes'
     }).paint({
-      featureCollection: this.tes_manch,
+      featureCollection: this.tes_scores,
       color: '030303',
       width: 1
     });
