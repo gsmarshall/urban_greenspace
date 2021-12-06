@@ -145,13 +145,14 @@
       };
 
       // Fetch a valid mapid from the remote web service defined in server.js.
-      fetch("/mapid", {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(mapid)
-      })
+      // fetch("/mapid", {
+      //   method: 'POST',
+      //   headers: {
+      //       'Content-Type': 'application/json'
+      //   },
+      //   body: JSON.stringify(mapid)
+      // })
+      fetch("/mapid")
         .then((response) => response.text())
         .then((mapid) => initialize(mapid));
     </script>
