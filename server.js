@@ -27,23 +27,36 @@ const app = express().get('/mapid', (_, response) => {
   // const cimg = census.census_image;
   // census.calculateScores();
   // census.visualizeEquityScore();
-
-  // expanded analysis range
-  const preprocessing = new PreprocessFeatures();
-  preprocessing.createPlaceList();
-
-  const manch_analysis = new CensusAnalysis(preprocessing.test_list.get(0), 4, 0.4);
-  // Preprocessing and image classification
-  var study_area = ee.FeatureCollection(manch_analysis.censusdata).geometry();
-
-  manch_analysis.placeAnalysis();
-  manch_analysis.visualizeEquityScore();
-  manch_analysis.tes_image.getMap(manch_analysis.equity_vis, ({mapid}) => response.send(mapid));
-
   // getMap() (apparently) needs a callback to work reliably outside of the EE code editor
   // we had problems with this method returning undefined before, but it seems to be working now
   // census.tes_image.getMap(census.equity_vis, ({mapid}) => response.send(mapid));
 
+
+  // expanded analysis range - run on only one census place (currently Manchester, NH)
+  // to run for a different place or on multiple places, change the contents of test_list and/or iterate over the list
+  // Depending on the region or regions selected, it may take a significant amount of time to calculate
+  // const preprocessing = new PreprocessFeatures();
+  // preprocessing.createPlaceList();
+  //
+  // const manch_analysis = new CensusAnalysis(preprocessing.test_list.get(0), 4, 0.4);
+  // // Preprocessing and image classification
+  // var study_area = ee.FeatureCollection(manch_analysis.censusdata).geometry();
+  //
+  // manch_analysis.placeAnalysis();
+  // manch_analysis.visualizeEquityScore();
+  // manch_analysis.tes_image.getMap(manch_analysis.equity_vis, ({mapid}) => response.send(mapid));
+
+  // display NAIP imagery for website demo
+  const new_england = ee.Geometry.Polygon(
+                      [[[-74.28005504715632, 47.4924478750064],
+                        [-74.28005504715632, 41.01857620754161],
+                        [-66.63357067215632, 41.01857620754161],
+                        [-66.63357067215632, 47.4924478750064]]], null, false);
+  const naip = new Preprocessing(new_england);
+  const naip_image = naip.preprocess();
+  //console.log(ee.Image(naip_image).getInfo());
+
+  naip_image.getMap(naip.visParamsMax, ({mapid}) => response.send(mapid));
 });
 
 app.use(express.static(application_root));
@@ -79,7 +92,7 @@ Visit https://developers.google.com/earth-engine/service_account#how-do-i-create
     constructor(_study_area){
       // true color visualization parameters for NAIP image
       this.visParamsMax = {
-        bands: ['N_max', 'R_max', 'G_max'],
+        bands: ['R_max', 'G_max', 'B_max'],
         min: 0,
         max: 255
       };
@@ -123,7 +136,7 @@ Visit https://developers.google.com/earth-engine/service_account#how-do-i-create
                     .addBands(naip_4band.reduce(ee.Reducer.stdDev()))// include a standard deviation reducer
                     .float();
 
-      var composite2 = composite.clip(this.manchester);
+      var composite2 = composite.clip(this.study_area);
 
       return composite2;
     }
@@ -171,6 +184,10 @@ Visit https://developers.google.com/earth-engine/service_account#how-do-i-create
   }
 
 class PreprocessFeatures {
+  // Joins health data to input census data, then splits the large collection into smaller collections
+  // for which the analysis will be run, with one for every census place
+  // This is inefficient and should be done as a preprocessing step outside of the server code,
+  // but is included here as a demonstration of methods and functionality.
   constructor(){
     this.priority_indicators_places = ee.FeatureCollection('users/gsmarshall/ne_indicators_places');
     this.health_indicators_ne = ee.FeatureCollection('users/gsmarshall/ne_health_indicators');
@@ -231,6 +248,7 @@ class PreprocessFeatures {
 }
 
 class CensusAnalysis {
+  /*
   // constructor for old analysis workflow, with only one fixed study area
   // constructor(classified_img, _scale, _canopy_goal){
   //   // this.censusdata = ee.FeatureCollection('./data/priority_indicators_rawv2.geojson');
@@ -304,7 +322,7 @@ class CensusAnalysis {
   //     }
   //   };
   // }
-
+*/
   // constructor for dynamic analysis workflow, with the study area dependent on the input collection
   constructor(input_collection, _scale, _canopy_goal){
     // this.censusdata = ee.FeatureCollection('./data/priority_indicators_rawv2.geojson');
@@ -318,15 +336,6 @@ class CensusAnalysis {
     this.scale = _scale; // pixel size in meters at which to calculate tree cover - lower is more precise, but runs far slower
     this.canopy_goal = _canopy_goal; // percent canopy cover goal, expressed as a decimal in [0,1]
     this.pixel_area = this.scale*this.scale;
-
-    this.census_image = ee.Image().byte().paint({
-      featureCollection: this.censusdata,
-      color: 'B01001_001'
-    }).paint({
-      featureCollection: this.censusdata,
-      color: '030303',
-      width: 1
-    });
 
     // visualization parameters for final tes score
     this.equity_vis = {
@@ -376,7 +385,6 @@ class CensusAnalysis {
     };
   }
 
-  // ***************************** census analysis *******************************
   // essentially a wrapper function for the analysis script
   // used with static analysis workflow
   // initializes member variable for final tes data
@@ -388,13 +396,16 @@ class CensusAnalysis {
     let priority_census = this.censusdata.map(this.addLowIncomePct).map(this.addNonWhitePct).map(this.addUnemploymentPct).map(this.addDepRatio);
 
     // calculate tree cover area
+    // NOTE: ideally, we might change the projection based on what state the place is in.
+    // This would be very doable, but due to time constraints this feature was not implemented here.
+    // The NH projection, which is based on a transverse Mercator, should be good enough for this analysis
     // input: boolean classified tree cover, where 1 = tree, 0 = other
     let tree_cover = this.green.reduceRegions({
       collection: priority_census,
       reducer: ee.Reducer.sum(),
-      scale: this.scale, // scale of 4 runs reasonably
-      crs: 'EPSG:32110',   // specify projection as NAD83/New Hampshire - need to set as object member to adjust for different regions
-      tileScale: 4 // tileScale of 4 with scale of 2 runs, but very slowly
+      scale: this.scale,
+      crs: 'EPSG:32110',   // specify projection as NAD83/New Hampshire
+      tileScale: 4
     });
 
     let tree_gap = tree_cover.map(this.setGap(this.pixel_area, this.canopy_goal));
@@ -653,23 +664,3 @@ class CensusAnalysis {
   };
 
 }
-  // python for getting study area
-  // geometry = None
-  //   if self.request.get('rectangle'):
-  //     coords = [float(i) for i in self.request.get('rectangle').split(',')]
-  //     geometry = ee.FeatureCollection([ee.Feature(
-  //         ee.Geometry.Rectangle(coords=coords),
-  //         {'system:index': '0'}
-  //     )])
-  //   else:
-  //     geometry = ee.FeatureCollection([
-  //         ee.Feature(
-  //             ee.Geometry.Polygon([[
-  //                 [29.970703125, 31.522361470421437],
-  //                 [29.981689453125, 30.05007652169871],
-  //                 [32.574462890625, 30.116621582819374],
-  //                 [32.4755859375, 31.737511125687828]
-  //             ]]),
-  //             {'system:index': '0'}
-  //         )
-  //     ])
