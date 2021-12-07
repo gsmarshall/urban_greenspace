@@ -129,7 +129,7 @@
       </div>
 
 		<script src="radarChart.js"></script>
-    <script src="./data/tes_data.json"></script>
+    <script src="./data/place_collection_tes_output.json"></script>
 
     <script>
 
@@ -215,7 +215,7 @@
         const overlay = new ee.layers.ImageOverlay(tileSource);
         embeddedMap.overlayMapTypes.push(overlay);
 
-        embeddedMap.data.loadGeoJson('data/tes_data.geojson');
+        embeddedMap.data.loadGeoJson('data/place_collection_tes_output.geojson');
 
         embeddedMap.data.setStyle(function(feature){
           //console.log(feature);
