@@ -84,7 +84,7 @@
         font-family: didot;
         font-size: 30px;
         color: #403328;
-        text-align:left;
+        text-align:center;
       }
 
       #data{
@@ -126,16 +126,17 @@
     <div class="center">
       <div class="column map-container" id="map-container"></div>
       <div class="column filters" id="filters">
-          <span style="color:#403328;text-align:left;font-family:didot;font-size:30px" id="countyName"></span>
-          <div style="color:green;text-align:left;font-family:didot;font-size:24px"> <span id="stateName"> </div>
+          <span style="color:#403328;text-align:center;font-family:didot;font-size:30px" id="countyName"></span>
+          <div style="color:green;text-align:center;font-family:didot;font-size:24px"> <span id="stateName"> </div>
               <br>
               <br>
               <br>
           <div style="color:#737373;text-align:center;font-family:font-family: 'Raleway', sans-serif;font-size:26px"><span id="treeScore"> </div>
+            <br>
           <div class="radarChart"></div>
       </div>
 
-		<script src="radarChart.js"></script>
+	<script src="radarChart.js"></script>
     <script src="./data/place_collection_tes_output.json"></script>
 
     <script>
@@ -147,11 +148,11 @@
 			//////////////////////// Set-Up //////////////////////////////
 			//////////////////////////////////////////////////////////////
       var createChart = function(id){
-        const margin = {top: 0, right: 0, bottom: 0, left: 0},
+        const margin = {top: 100, right: 100, bottom: 100, left: 60},
           //width = Math.min(400, window.innerWidth - 10) - margin.left - margin.right,
           //height = Math.min(width, window.innerHeight - margin.top - margin.bottom - 20);
-          width = window.innerWidth * .19;
-          height = width;
+          width = 250;
+          height = 250;
         //Data
         const data = [];
         const labels = [];
@@ -192,8 +193,8 @@
           .range(["#5E8F5D","#5E8F5D","#5E8F5D"]);
 
         const radarChartOptions = {
-          w: width,
-          h: height,
+          w: 300,
+          h: 300,
           maxValue: 1,
           levels: 4,
           roundStrokes: true,
