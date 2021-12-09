@@ -55,7 +55,7 @@
       #map-container {
         alt:"Interactive Map";
         height: 900px;
-        width: 69%;
+        width: 67%;
         background-color: #eee;
         margin-left: 1%;
       }
@@ -67,17 +67,18 @@
         background-color: #70785d;
         padding-top: 30px;
         padding-bottom: 20px;
-        padding-left: 10%;
+        padding-left: 0%;
         border: 0px;
         font-size: 32px;
         font-family: didot;
         color: #fffbee;
         text-shadow: 2px 2px #5e4700;
+        text-align: center;
       }
       #filters{
         margin-left: 1%;
         margin-right: 1%;
-        width: 28%;
+        width: 30%;
         height: 900px;
         background-color: #dae8da;
         padding:20px;
@@ -140,7 +141,7 @@
     <script src="./data/place_collection_tes_output.json"></script>
 
     <script>
-     let countyname = "Please select a block group.";
+     let countyname = "Click on the map to select a block group.";
      document.getElementById("countyName").innerHTML = countyname;
       /* Radar chart design created by Nadieh Bremer - VisualCinnamon.com */
 
@@ -193,8 +194,8 @@
           .range(["#5E8F5D","#5E8F5D","#5E8F5D"]);
 
         const radarChartOptions = {
-          w: 300,
-          h: 300,
+          w: 275,
+          h: 275,
           maxValue: 1,
           levels: 4,
           roundStrokes: true,
