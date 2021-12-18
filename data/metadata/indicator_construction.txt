@@ -1,0 +1,74 @@
+// Indicator Construction: outline of how derived variables are calculated in our analysis
+// refer to replication_data_dictionary.txt for variable descriptions
+
+// The US Census specifies that population ratios and percentages should be calculated using population totals from the data universe each variable exists within.
+// For example, the unemployment rate should be calculated from the total population for whom employment status is determined rather than some universal total
+// This is why different total values are included for each type of variable
+
+Normalization: all indicators are normalized by their citywide maximum and minimum values
+	normalize(indicator) = (indicator - indicator_min) / (indicator_max - indicator_min)
+
+child_pct: Percent children
+	child_pct = (B01001_003 + B01001_004 + B01001_005 + B01001_006 + B01001_027 + B01001_028 + B01001_029 + B01001_030) / B01001_001
+
+dep_ratio: Dependency Ratio
+	children = (B01001_003 + B01001_004 + B01001_005 + B01001_006 + B01001_027 + B01001_028 + B01001_029 + B01001_030)
+	seniors = (B01001_020 + B01001_021 + B01001_022 + B01001_023 + B01001_024 + B01001_025 + B01001_044 + B01001_045 + B01001_046 + B01001_047 + B01001_048 + B01001_049)
+	totalpop = B01001_001
+	dep_ratio = (children + seniors) / (totalpop - (children + seniors))
+
+est_covera: Estimated canopy coverage
+	est_covera = (sum * pixel_area) / ALAND   
+	pixel_area is the area in square meters of a single pixel in the classified image used in the analysis, and is defined as a constant outside of the feature collection
+	As of 12/17/2021, pixel_area = 16 for this analysis
+
+gap: GAP score
+	gap = (goal - est_covera) / max(goal - est_covera)
+
+goal: Canopy cover goal
+	goal = target * pop_adjust
+	target is the baseline canopy cover target for the biome the block group is within, and is defined as a constant. 
+	As of 12/17/2021, target = 0.4 for all areas in this analysis
+	pop_adjust = 1.2 if pop_density < 2000 people/km2
+		     1.0 if 2000 < pop_density < 4000
+		     0.8 if 4000 < pop_density < 8000
+		     0.5 if pop_density > 8000
+
+health_nor: Normalized composite health index
+	health_nor = ( normalize(asthma) + normalize(chd) + normalize(phys_hlth) + normalize(ment_hlth) ) / 4
+
+low_income: Low income population percentage
+	low_income = (C17002_001 - C17002_008) / C17002_001
+
+nonwhite: Nonwhite population percentage
+	nonwhite = (B03002_001 - B03002_003) / B03002_001
+
+pop_densit: Population density (people per square kilometer)
+	pop_densit = B01001_001 / (ALAND / 1000000)
+
+priority: Priority score
+	priority = (health_nor + normalize(nonwhite) + normalize(low_income) + normalize(dep_ratio) + normalize(unemployed) ) / 5
+
+seniors_pc: Percent seniors
+	seniors_pc = (B01001_020 + B01001_021 + B01001_022 + B01001_023 + B01001_024 + B01001_025 + 
+		     B01001_044 + B01001_045 + B01001_046 + B01001_047 + B01001_048 + B01001_049) / B01001_001
+
+tes: Tree equity score
+	tes = 100(1 - gap*priority)
+
+unemployed: Unemployment rate
+	unemployed = (B23025_001 - B23025_002) / B23025_001
+
+tes_diff: Tree equity score difference
+	tes_diff = tes - og_tes
+
+prty_diff: Priority score difference
+	prty_diff = priority - og_priorit
+
+gap_diff: Gap score difference
+	gap_diff = gap - og_tc_gap
+	
+
+
+
+

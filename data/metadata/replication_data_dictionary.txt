@@ -1,0 +1,78 @@
+// Data Dictionary: brief description of each variable in our output data. 
+// For more information about how derived variables are calculated, see indicator_construction.txt
+
+id: unique identifier given to each feature by GEE (use GEOID for joins/selections)
+// raw census variables used in our analysis, queried from the US Census ACS 2014-2018
+ALAND: land area of the block group provided with the census data (square meters)
+AWATER: water area of the block group provided with the census data (square meters)
+// table B01001: population by sex
+B01001_001: total population
+// male population:
+B01001_003: under 5 years
+B01001_004: 5-9 years
+B01001_005: 10-14 years
+B01001_006: 15-17 years
+B01001_020: 65&66 years
+B01001_021: 67-69 years
+B01001_022: 70-74 years
+B01001_023: 75-79 years
+B01001_024: 80-84 years
+B01001_025: 85 years and over
+// female population:
+B01001_027: under 5 years
+B01001_028: 5-9 years
+B01001_029: 10-14 years
+B01001_030: 15-17 years
+B01001_044: 65&66 years
+B01001_045: 67-69 years
+B01001_046: 70-74 years
+B01001_047: 75-79 years
+B01001_048: 80-84 years
+B01001_049: 85 years and over
+// table B03002: population by race
+B03002_001: total
+B03002_003: white alone
+// table B23025: population by employment status
+B23025_001: total
+B23025_002: in labor force
+// table C17002_001: ratio of income to poverty level
+C17002_001: total population
+C17002_008: population with income > 2x poverty level
+COUNTYF: county FIPS code
+GEOID: census-designated unique ID
+NAME_y: name of the block group
+STATEFP: state FIPS code
+
+// raw health variables
+asthma: percent population that reports being diagnosed with asthma
+chd: percent population that reports being diagnosed with angina or coronary heart disease
+ment_hlth: percent population with self-reported poor mental health for 14 or more days out of 30
+phys_hlth: percent population with self-reported poor physical health for 14 or more days out of 30 
+
+// derived variables
+child_pct: fraction of population less than 18 years old
+dep_ratio: dependency ratio, defined as the ratio of children and seniors population to population working age adults
+est_covera: estimated canopy coverage, defined as ratio of tree canopy area to total area
+gap: canopy cover gap score
+goal: tree canopy cover goal
+health_nor: normalized composite health status index
+low_income: fraction of population with income < 2x poverty level
+nonwhite: fraction of population identifying as some race other than white-non-hispanic
+p_GEOID: GEOID for Census Designated Place the block group lies within
+phys_hlth: percent population with self-reported poor physical health for 14 or more days out of 30 
+plac_nm: name of Census Designated Place the block group lies within
+pop_densit: population density (people per square kilometer)
+priority: priority score
+seniors_pc: fraction of population >65 years old
+sum: number of green pixels in classified image; multiplied by pixel size to calculate canopy cover area
+tes: final tree equity score
+tract_id: GEOID of census tract the block group lies within
+tractfips: census tract FIPS code
+unemployed: fraction of population that is unemployed
+geoid_int: same as GEOID, but cast to integer type to facillitate joining original data to our results
+og_tc_gap: gap score calculated in the original Tree Equity Score analysis
+og_priorit: priority score calculated in the original Tree Equity Score analysis
+og_tes: tree equity score calculated in the original Tree Equity Score analysis
+tes_diff: difference between our tes score and original tes score (tes - og_tes)
+prty_diff: difference between our priority score and original priority score (priority - og_priorit)
+gap_diff: difference between our gap score and original gap score (gap - og_tc_gap)
