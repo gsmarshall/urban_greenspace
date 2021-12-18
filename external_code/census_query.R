@@ -14,7 +14,7 @@ mykey = 'census api key'
 
 # all variables needed to reproduce Tree Equity Score priority index (https://treeequityscore.org/datasources/)
 # variable names sourced from US Census ACS table list, available here (https://www.census.gov/programs-surveys/acs/technical-documentation/table-shells.2018.html)
-myvars = c('B01001_001', 'B03002_003', 'B03002_001', 'B23025_006', 'B23025_001', 'B01001_003', 'B01001_004', 'B01001_005',
+myvars = c('B01001_001', 'B03002_003', 'B03002_001', 'B23025_002', 'B23025_001', 'B01001_003', 'B01001_004', 'B01001_005',
            'B01001_006', 'B01001_027', 'B01001_028', 'B01001_029', 'B01001_030', 'B01001_044', 'B01001_045', 'B01001_046',
            'B01001_047', 'B01001_048', 'B01001_049', 'B01001_020', 'B01001_021', 'B01001_022', 'B01001_023', 'B01001_024',
            'B01001_025', 'C17002_001', 'C17002_008')
