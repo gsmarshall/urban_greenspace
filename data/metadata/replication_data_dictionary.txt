@@ -33,8 +33,8 @@ B01001_049: 85 years and over
 B03002_001: total
 B03002_003: white alone
 // table B23025: population by employment status
-B23025_001: total
-B23025_002: in labor force
+B23025_002: total population in labor force
+B23025_005: unemployed population
 // table C17002_001: ratio of income to poverty level
 C17002_001: total population
 C17002_008: population with income > 2x poverty level

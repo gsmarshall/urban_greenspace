@@ -57,7 +57,7 @@ tes: Tree equity score
 	tes = 100(1 - gap*priority)
 
 unemployed: Unemployment rate
-	unemployed = (B23025_001 - B23025_002) / B23025_001
+	unemployed = B23025_005 / B23025_002
 
 tes_diff: Tree equity score difference
 	tes_diff = tes - og_tes
